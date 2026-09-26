@@ -4,6 +4,7 @@
     python -m optrader backtest --source sim|yahoo --symbols SPY,QQQ,TSLA --days 5
     python -m optrader diagnose          # test your Webull OpenAPI connection & show raw responses
     python -m optrader reset-paper       # reset the paper account to starting equity
+    python -m optrader test-notify       # send a test push to your phone
 """
 from __future__ import annotations
 
@@ -155,6 +156,20 @@ def cmd_diagnose(args) -> int:
     return 0
 
 
+def cmd_test_notify(args) -> int:
+    from .notify import Notifier
+
+    load_settings(args.config)  # loads .env
+    n = Notifier()
+    if not n.enabled:
+        print("No notification channel configured. Set NTFY_TOPIC (or Discord/Telegram) in .env.")
+        return 1
+    asyncio.run(n.send("Options Agents test", "Push notifications are working. You'll get trade proposals here.",
+                       "high"))
+    print("Sent. Check your phone.")
+    return 0
+
+
 def cmd_reset_paper(args) -> int:
     settings = load_settings(args.config)
     for name in ("paper_account.json", "paper_sim.json"):
@@ -194,13 +209,14 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--max-chars", type=int, default=1500)
 
     sub.add_parser("reset-paper", help="reset paper trading accounts")
+    sub.add_parser("test-notify", help="send a test push notification to your phone")
 
     args = ap.parse_args(argv)
     _setup_logging(args.verbose)
     if args.cmd is None:
         args = ap.parse_args(["run"] + (argv or sys.argv[1:]))
     return {"run": cmd_run, "backtest": cmd_backtest, "diagnose": cmd_diagnose,
-            "reset-paper": cmd_reset_paper}[args.cmd](args)
+            "reset-paper": cmd_reset_paper, "test-notify": cmd_test_notify}[args.cmd](args)
 
 
 if __name__ == "__main__":

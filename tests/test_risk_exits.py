@@ -158,3 +158,35 @@ def test_exit_plan_prices_on_valid_ticks(settings, clock, tmp_path):
     for px in (plan.stop_price, plan.target1_price, plan.target2_price):
         assert abs(px * 20 - round(px * 20)) < 1e-6
     assert plan.target1_qty == 1
+
+
+def test_cash_account_only_spends_settled_funds(settings, clock, tmp_path):
+    from optrader.models import ExitFill
+    settings.risk.account_type = "cash"
+    rm = RiskManager(settings, Database(tmp_path / "t.db"), clock)
+    # broker reports settled cash -> it caps spending
+    acct = AccountSnapshot(equity=10_000, cash=10_000, buying_power=10_000, settled_cash=150)
+    assert rm.available_funds(acct) == 150
+    d = rm.check_entry(_sig(clock.now()), _contract(2.0), 2.0, acct, [], [])
+    assert not d.ok and any("settled cash" in b for b in d.blocks)
+    # broker doesn't report it -> today's sale proceeds are treated as unsettled
+    sold = _open_pos(rm, clock.now(), "AMD")
+    sold.exits.append(ExitFill(ts=clock.now(), qty=1, price=2.5, reason="target 2", pnl=50))
+    acct2 = AccountSnapshot(equity=10_000, cash=10_000, buying_power=400)
+    assert rm.available_funds(acct2, [sold]) == 150
+    # margin accounts use plain buying power
+    settings.risk.account_type = "margin"
+    assert rm.available_funds(acct2, [sold]) == 400
+
+
+def test_daily_profit_goal_stops_new_trades(settings, clock, tmp_path):
+    rm = RiskManager(settings, Database(tmp_path / "t.db"), clock)
+    winner = _open_pos(rm, clock.now(), "META")
+    winner.status, winner.qty, winner.realized_pnl, winner.closed_time = "closed", 0, 1200, clock.now()
+    d = rm.check_entry(_sig(clock.now()), _contract(), 2.0, _acct(30_000), [winner], [])
+    assert d.ok  # goal off by default
+    settings.risk.daily_profit_target = 1000
+    d = rm.check_entry(_sig(clock.now()), _contract(), 2.0, _acct(30_000), [winner], [])
+    assert any("profit goal" in b for b in d.blocks)
+    settings.risk.stop_at_profit_target = False
+    assert rm.check_entry(_sig(clock.now()), _contract(), 2.0, _acct(30_000), [winner], []).ok

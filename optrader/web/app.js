@@ -61,7 +61,11 @@ function renderStatus(s) {
   $("#kPnl").textContent = money(t.total, true); $("#kPnl").className = "kpi-value " + cls(t.total);
   $("#kPnlSub").textContent = `realized ${money(t.realized, true)} • open ${money(t.unrealized, true)}`;
   const p = s.pdt;
-  if (p.applies) {
+  $("#kPdtLabel").textContent = s.account_type === "cash" ? "Settled cash available" : "Day trades left (PDT)";
+  if (s.account_type === "cash") {
+    $("#kPdt").textContent = money(s.available_funds); $("#kPdt").className = "kpi-value";
+    $("#kPdtSub").textContent = "cash account • no PDT limit • sale proceeds settle next day";
+  } else if (p.applies) {
     const left = Math.max(p.remaining_for_new_entries ?? 0, 0);
     $("#kPdt").textContent = `${left}`; $("#kPdt").className = "kpi-value " + (left === 0 ? "down" : left === 1 ? "warn" : "");
     $("#kPdtSub").textContent = `${p.used}/${p.max} used in rolling 5 days`;
@@ -71,6 +75,15 @@ function renderStatus(s) {
   }
   $("#kTrades").textContent = t.entries;
   $("#kTradesSub").textContent = `${t.wins}W / ${t.losses}L` + (t.consecutive_losses ? ` • ${t.consecutive_losses} loss streak` : "");
+  if (t.profit_target) {
+    const prog = Math.max(t.total, 0) / t.profit_target;
+    $("#kGoal").textContent = `${money(t.total, true)} / ${money(t.profit_target)}`;
+    $("#kGoal").className = "kpi-value " + (t.goal_reached ? "up" : "");
+    const gb = $("#kGoalBar"); gb.style.width = Math.min(prog * 100, 100).toFixed(0) + "%"; gb.style.background = "var(--accent)";
+    $("#kGoalSub").textContent = t.goal_reached ? "goal reached — no new trades today" : `${(prog * 100).toFixed(0)}% of goal`;
+  } else {
+    $("#kGoal").textContent = "off"; $("#kGoalSub").textContent = "set risk.daily_profit_target in Settings";
+  }
   const lim = t.daily_loss_limit || 0;
   const used = lim ? Math.min(Math.max(-t.total, 0) / lim, 1) : 0;
   $("#kLoss").textContent = lim ? `${money(Math.max(-t.total, 0))} / ${money(lim)}` : "—";

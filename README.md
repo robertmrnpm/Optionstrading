@@ -61,6 +61,7 @@ rules, and your approval if you want it.
 - **Daily loss limit:** new trades stop at -$300 or -3% of equity, whichever is smaller, counting open losses. Trading also stops after 3 losses in a row.
 - **Limits:** max 2 open positions, max 4 trades a day, and one position per symbol.
 - **Time windows:** no entries in the first 5 minutes, none after 15:30 (15:00 for 0DTE), and **everything is closed by 15:50 ET**.
+- **Daily profit goal** (optional): once reached, no new trades that day.
 - **Kill switch:** blocks new trades and can flatten everything with one click.
 - **Cash accounts:** uses settled cash only (options settle T+1). Cash accounts are exempt from PDT.
 
@@ -77,6 +78,26 @@ Webull doesn't accept market or trailing-stop orders on options. Exits are there
 
 ---
 
+## Your setup (cash account + Webull real-time data + AI analyst + phone push)
+
+`config.yaml` is already set for this: **paper** mode, Webull real-time data, a **cash** account, the AI analyst on, Approve mode, and a **$1,000 daily goal**.
+
+1. `cp .env.example .env`, then fill in:
+   - `WEBULL_APP_KEY` / `WEBULL_APP_SECRET` from the Webull developer portal.
+   - `ANTHROPIC_API_KEY` from https://console.anthropic.com. Keep it only in `.env` and never paste it anywhere else.
+   - `NTFY_TOPIC`: install the **ntfy** app (iOS/Android), subscribe to a long random topic name (e.g. `optrader-7f3k9q2x`), and put the same name here. Anyone who knows the topic name can read your alerts, so make it hard to guess.
+2. In `config.yaml`, set `risk.starting_equity` to your real account size so paper sizing matches reality.
+3. Run `python -m optrader test-notify`. Your phone should buzz.
+4. Run `python -m optrader diagnose` and approve the Webull login on your phone the first time.
+5. Run `python -m optrader run`, open http://127.0.0.1:8000, and paper trade for at least 2–4 weeks.
+
+**Cash account rules the app enforces:** there's no PDT limit, but you can only buy with **settled** cash. Option sale proceeds settle the next business day (T+1). Buying with unsettled money and selling before it settles is a *good-faith violation*; 3 in 12 months gets the account restricted for 90 days. The risk manager uses Webull's settled-cash figure, or if that isn't reported, subtracts today's sale proceeds. It won't size a trade beyond what's settled. In practice, each dollar can be used for one trade a day.
+
+### About the $1,000/day goal
+`risk.daily_profit_target` is a **stopping rule**. When realized plus open P&L reaches it, the agents stop opening trades for the day and push "Daily goal reached" to your phone. Open positions still follow their exits. The goal never makes the app take more risk.
+
+Here's what the goal implies. Per-trade risk is `risk_per_trade_pct` (1%). A strong day trader nets about **+0.2–0.3R per trade** on average; R is the amount risked, and most traders net below zero. At 3–4 trades a day, that's about **1% of the account per day on average**, with plenty of red days. An *average* $1,000 day therefore takes roughly an $80–100k account. On a $10k account, $1,000/day is 10% a day, and the only way to try for it is oversized risk, which is how accounts get wiped out. Grow the account and let the journal's expectancy tell you when to size up.
+
 ## Quick start (5 minutes, no accounts needed)
 
 ```bash
@@ -85,6 +106,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m optrader run --mode sim
 ```
+(`--mode sim` overrides the `paper` mode in `config.yaml`.)
 
 Open http://127.0.0.1:8000. **Sim mode** runs a synthetic market at 30x speed (a full day in about 13 minutes), with realistic regimes, gaps, earnings movers and unusual options prints. Use it to learn the dashboard, try the Approve flow, and experiment with settings.
 

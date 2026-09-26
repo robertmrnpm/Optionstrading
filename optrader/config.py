@@ -88,6 +88,10 @@ class RiskSettings(BaseModel):
     zero_dte_last_entry_time: str = "15:00"  # ET
     flatten_time: str = "15:50"              # ET: everything is closed (day trading only)
     kill_switch: bool = False
+    # Daily profit goal ($). 0 = off. When reached (realized + open P&L), the agents stop opening
+    # new trades so a green day isn't given back. It is a stopping rule, never a reason to size up.
+    daily_profit_target: float = 0.0
+    stop_at_profit_target: bool = True
 
 
 class ExitSettings(BaseModel):

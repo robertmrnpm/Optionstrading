@@ -64,7 +64,11 @@ class WebullBroker(Broker):
         cash = fnum(pick(flat, "cash_balance", "total_cash", "cash", "total_cash_value"))
         bp = fnum(pick(flat, "option_buying_power", "buying_power", "day_buying_power", "cash_buying_power",
                        default=cash))
-        settled = pick(flat, "settled_cash", "cash_settled", "settled_funds")
+        settled = pick(flat, "settled_cash", "cash_settled", "settled_funds", "settled_cash_balance")
+        if settled is None:
+            unsettled = pick(flat, "unsettled_cash", "unsettled_funds", "unsettled_amount")
+            if unsettled is not None:
+                settled = cash - fnum(unsettled)
         dt_used = pick(flat, "day_trades_used", "day_trade_count", "used_day_trades")
         return AccountSnapshot(equity=equity or cash, cash=cash, buying_power=bp,
                                settled_cash=fnum(settled) if settled is not None else None,

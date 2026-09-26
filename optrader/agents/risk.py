@@ -85,6 +85,24 @@ class RiskManager:
         pending = len([p for p in open_positions if p.entry_time.date() == today and not p.external])
         return self.s.risk.pdt_max_day_trades - self.day_trades_used(account) - pending - self.s.risk.pdt_reserve
 
+    def available_funds(self, account: AccountSnapshot, positions_today: list[Position] | None = None) -> float:
+        """Money that can be spent on a new entry without breaking account rules.
+
+        Cash accounts may only buy with SETTLED funds (options settle T+1). Buying with unsettled
+        sale proceeds and selling before they settle is a good-faith violation (3 in 12 months =
+        90-day restriction). If the broker reports settled cash we use it; otherwise we subtract
+        today's sale proceeds from buying power, since they won't settle until tomorrow.
+        """
+        bp = max(account.buying_power, 0.0)
+        if self.s.risk.account_type != "cash":
+            return bp
+        if account.settled_cash is not None:
+            return max(min(bp, account.settled_cash), 0.0)
+        today = self.clock.today()
+        unsettled = sum(x.price * x.qty * 100 for p in (positions_today or []) for x in p.exits
+                        if x.ts.date() == today)
+        return max(bp - unsettled, 0.0)
+
     def daily_loss_limit(self, account: AccountSnapshot) -> float:
         r = self.s.risk
         return min(r.max_daily_loss, account.equity * r.max_daily_loss_pct / 100)
@@ -112,6 +130,9 @@ class RiskManager:
         limit = self.daily_loss_limit(account)
         if st.total <= -limit:
             blocks.append(f"daily loss limit hit (${st.total:,.0f} / -${limit:,.0f})")
+        if r.daily_profit_target > 0 and r.stop_at_profit_target and st.total >= r.daily_profit_target:
+            blocks.append(f"daily profit goal reached (${st.total:,.0f} ≥ ${r.daily_profit_target:,.0f}) — "
+                          "locking in the day")
         if st.consecutive_losses >= r.max_consecutive_losses:
             blocks.append(f"{st.consecutive_losses} losses in a row — done for the day")
         if st.entries + inflight >= r.max_trades_per_day:
@@ -132,14 +153,15 @@ class RiskManager:
             blocks.append(f"PDT: no day trades left in the rolling 5-day window ({detail})")
         return blocks
 
-    def max_affordable_premium(self, zero_dte: bool, account: AccountSnapshot, headroom: float = 0.85) -> float:
+    def max_affordable_premium(self, zero_dte: bool, account: AccountSnapshot, headroom: float = 0.85,
+                               positions_today: list[Position] | None = None) -> float:
         """Highest option price (per share) that still sizes to >= 1 contract, with headroom for price drift."""
         r, x = self.s.risk, self.s.exits
         stop_pct = x.zero_dte_stop_loss_pct if zero_dte else x.stop_loss_pct
         by_risk = account.equity * r.risk_per_trade_pct / 100 / (stop_pct * 100)
         by_cap = r.max_premium_per_trade / 100
         by_pct = account.equity * r.max_position_pct / 100 / 100
-        by_bp = max(account.buying_power, 0) / 100
+        by_bp = self.available_funds(account, positions_today) / 100
         return round(min(by_risk, by_cap, by_pct, by_bp) * headroom, 2)
 
     def check_entry(self, sig: Signal, contract: OptionContract, entry_price: float, account: AccountSnapshot,
@@ -168,7 +190,8 @@ class RiskManager:
             "risk budget": qty,
             "max premium per trade": math.floor(r.max_premium_per_trade / per_contract_cost),
             "max position % of equity": math.floor(account.equity * r.max_position_pct / 100 / per_contract_cost),
-            "buying power": math.floor(max(account.buying_power, 0) / (per_contract_cost + 1)),
+            ("settled cash" if r.account_type == "cash" else "buying power"):
+                math.floor(self.available_funds(account, positions_today) / (per_contract_cost + 1)),
         }
         qty = min(caps.values())
         if qty < 1:

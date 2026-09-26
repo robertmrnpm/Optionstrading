@@ -54,6 +54,7 @@ class Orchestrator:
         self._day: date | None = None
         self._running = False
         self._info_throttle: dict[str, datetime] = {}
+        self._goal_notified: date | None = None
         self.last_error: str | None = None
 
     # ---- lifecycle -------------------------------------------------------------------------------------
@@ -112,6 +113,7 @@ class Orchestrator:
         await self.refresh_account()
         self.execution.expire_stale()
         await self.positions.tick()
+        self._check_profit_goal()
 
         if not ctx.clock.is_market_open():
             return
@@ -182,7 +184,8 @@ class Orchestrator:
                 self._throttled_info(f"Signal {sig.symbol} {sig.direction} ({sig.strategy}, score {sig.score:.0f}) "
                                      f"not traded: {'; '.join(blocks)}", key="; ".join(blocks))
                 continue
-            max_premium = self.risk.max_affordable_premium(sig.zero_dte, acct)
+            max_premium = self.risk.max_affordable_premium(sig.zero_dte, acct,
+                                                           positions_today=self.positions.positions_today())
             try:
                 contract, note = await self.selector.select(sig, now.date(), max_premium)
             except Exception as e:
@@ -195,6 +198,20 @@ class Orchestrator:
             proposals.append(p)
             busy.add(sig.symbol)
         return proposals
+
+    def _check_profit_goal(self) -> None:
+        target = self.ctx.settings.risk.daily_profit_target
+        today = self.ctx.clock.today()
+        if target <= 0 or self._goal_notified == today:
+            return
+        st = self.risk.day_stats(self.positions.positions_today(), self.positions.open_positions())
+        if st.total >= target:
+            self._goal_notified = today
+            stop = self.ctx.settings.risk.stop_at_profit_target
+            msg = (f"🎯 Daily goal reached: ${st.total:,.0f} (goal ${target:,.0f})."
+                   + (" No new trades today — open positions keep their exits." if stop else ""))
+            self.ctx.bus.publish("system", msg)
+            asyncio.create_task(self.ctx.notify("Daily goal reached", msg, "high"))
 
     def _throttled_info(self, message: str, key: str, minutes: int = 15) -> None:
         now = self.ctx.clock.now()
@@ -235,8 +252,12 @@ class Orchestrator:
                 "total": round(stats.total, 2), "entries": stats.entries, "wins": stats.wins,
                 "losses": stats.losses, "consecutive_losses": stats.consecutive_losses,
                 "daily_loss_limit": round(self.risk.daily_loss_limit(acct), 2) if acct else None,
+                "profit_target": ctx.settings.risk.daily_profit_target or None,
+                "goal_reached": self._goal_notified == now.date(),
             },
             "kill_switch": ctx.settings.risk.kill_switch,
+            "account_type": ctx.settings.risk.account_type,
+            "available_funds": round(self.risk.available_funds(acct, self.positions.positions_today()), 2) if acct else None,
             "ai_enabled": self.ai.available,
             "notifications": ctx.notifier.enabled,
             "hot_list": [self.scanner.features[s].summary() if s in self.scanner.features else {"symbol": s}
