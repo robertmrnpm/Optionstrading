@@ -1,0 +1,34 @@
+# Your setup: Webull CASH account, real-time Webull data, AI analyst on, phone push via ntfy.
+# See config.example.yaml for every option. Secrets (keys, ntfy topic) go in .env, never here.
+
+app:
+  mode: paper            # paper = real Webull data, simulated fills. Switch to live only after weeks of paper results.
+  data_source: webull    # you have the real-time market data subscription
+
+execution:
+  trade_mode: approval   # approve each trade; switch to auto from the dashboard once you trust it
+
+risk:
+  account_type: cash     # no PDT limit; only SETTLED cash is used (options settle T+1) to avoid good-faith violations
+  starting_equity: 10000 # paper-trading balance — set this to your real account size
+  risk_per_trade_pct: 1.0
+  max_daily_loss: 300
+  max_open_positions: 2
+  max_trades_per_day: 4
+  # Goal tracking: when today's P&L reaches this, stop opening new trades and keep the day.
+  daily_profit_target: 1000
+  stop_at_profit_target: true
+
+ai:
+  enabled: true          # needs ANTHROPIC_API_KEY in .env
+  model: claude-opus-5
+  effort: medium
+  web_search: true
+  required_for_auto: true
+  min_confidence: 60
+
+notify:
+  on_proposal: true      # "Approve?" pushes to your phone
+  on_fill: true
+  on_exit: true
+  on_risk_block: true

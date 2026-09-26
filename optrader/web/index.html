@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Options Agents</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1l7 7-7 7-7-7z%22 fill=%22%234c8dff%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◆</span>
+    <span class="brand-name">Options Agents</span>
+    <span id="modeBadge" class="badge">—</span>
+  </div>
+  <div class="clock"><span id="mktDot" class="dot"></span><span id="clock">--:--:--</span> ET</div>
+  <div class="controls">
+    <div class="segmented" id="tradeMode" role="radiogroup" aria-label="Trade mode">
+      <button data-mode="alerts" title="Agents only alert you">Alerts</button>
+      <button data-mode="approval" title="You approve every trade">Approve</button>
+      <button data-mode="auto" title="Agents trade within risk limits">Auto</button>
+    </div>
+    <button id="flattenBtn" class="btn ghost" title="Close every open position now">Flatten all</button>
+    <button id="killBtn" class="btn danger" title="Stop all new trades">Kill switch</button>
+  </div>
+</header>
+
+<div id="banner" class="banner hidden"></div>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="dash">Dashboard</button>
+  <button class="tab" data-tab="journal">Journal</button>
+  <button class="tab" data-tab="settings">Settings</button>
+</nav>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="tab-dash" class="tabpane active">
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">Equity</div><div class="kpi-value" id="kEquity">—</div><div class="kpi-sub" id="kBp"></div></div>
+      <div class="kpi"><div class="kpi-label">Today P&amp;L</div><div class="kpi-value" id="kPnl">—</div><div class="kpi-sub" id="kPnlSub"></div></div>
+      <div class="kpi"><div class="kpi-label" id="kPdtLabel">Day trades left (PDT)</div><div class="kpi-value" id="kPdt">—</div><div class="kpi-sub" id="kPdtSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Daily goal</div><div class="kpi-value" id="kGoal">—</div><div class="meter"><div id="kGoalBar"></div></div><div class="kpi-sub" id="kGoalSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Trades today</div><div class="kpi-value" id="kTrades">—</div><div class="kpi-sub" id="kTradesSub"></div></div>
+      <div class="kpi"><div class="kpi-label">Daily loss limit</div><div class="kpi-value" id="kLoss">—</div><div class="meter"><div id="kLossBar"></div></div></div>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><h2>Trade proposals</h2><span class="muted" id="propHint"></span></div>
+          <div id="proposals" class="stack"><div class="empty">Agents are scanning. Proposals appear here.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Open positions</h2><span class="muted">stops &amp; targets are managed automatically</span></div>
+          <div id="positions"><div class="empty">No open positions.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Closed today</h2></div>
+          <div id="closed"><div class="empty">Nothing closed yet today.</div></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><h2>Scanner hot list</h2><span class="muted" id="hotCount"></span></div>
+          <div class="table-wrap"><table class="tbl" id="hotTable">
+            <thead><tr><th>Symbol</th><th class="r">Price</th><th class="r">Chg%</th><th class="r">RVol</th><th>VWAP</th><th>Trend</th></tr></thead>
+            <tbody></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Unusual options activity</h2></div>
+          <div id="uoa"><div class="empty">No unusual prints yet.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Agent activity</h2></div>
+          <div id="feed" class="feed"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOURNAL -->
+  <section id="tab-journal" class="tabpane">
+    <div class="kpis" id="jKpis"></div>
+    <div class="card">
+      <div class="card-head"><h2>Equity curve (closed trades)</h2><span class="muted">last 30 days</span></div>
+      <div id="equityChart" class="chart"></div>
+    </div>
+    <div class="grid">
+      <div class="col"><div class="card"><div class="card-head"><h2>By strategy</h2></div><div id="byStrategy"></div></div></div>
+      <div class="col"><div class="card"><div class="card-head"><h2>By exit reason</h2></div><div id="byExit"></div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Trades</h2></div>
+      <div class="table-wrap" id="tradesTable"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="tabpane">
+    <div class="card">
+      <div class="card-head"><h2>Settings</h2><span class="muted">saved to data/runtime_overrides.json; secrets live in .env</span></div>
+      <form id="settingsForm"></form>
+      <div class="form-actions"><button class="btn primary" id="saveSettings">Save changes</button><span id="saveMsg" class="muted"></span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Options trading involves substantial risk of loss. Agents are tools, not guarantees. Paper trade first.</footer>
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
