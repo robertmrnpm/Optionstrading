@@ -1,0 +1,91 @@
+# Copy to config.yaml and edit. Every key is optional; anything omitted uses the default shown.
+# Most of these can also be changed live from the dashboard's Settings tab.
+
+app:
+  mode: sim              # sim (synthetic market) | paper (real data, fake fills) | live (real Webull orders)
+  data_source: webull    # webull (real-time, needs API keys) | yahoo (free, delayed) — for paper/live
+  host: 127.0.0.1        # use 0.0.0.0 to reach it from your phone (then DASHBOARD_TOKEN is required)
+  port: 8000
+  sim_speed: 30          # sim mode: 30x = a full trading day in ~13 minutes
+
+execution:
+  trade_mode: approval   # alerts | approval | auto
+  proposal_ttl_seconds: 120
+  entry_timeout_seconds: 45
+  entry_chase_steps: 3
+  max_chase_pct_of_spread: 0.75   # never pay more than mid + 75% of the way to the ask
+
+risk:
+  starting_equity: 10000          # paper/sim starting balance
+  account_type: margin            # margin | cash (cash accounts avoid PDT but need settled funds)
+  pdt_enforce: true               # <$25k margin: max 3 day trades per rolling 5 business days
+  pdt_reserve: 0                  # keep N day trades back for emergencies
+  risk_per_trade_pct: 1.0         # % of equity lost if the stop is hit
+  max_premium_per_trade: 750
+  max_position_pct: 10
+  max_daily_loss: 300             # $ — stop opening trades for the day (whichever of $/% is smaller)
+  max_daily_loss_pct: 3
+  max_open_positions: 2
+  max_trades_per_day: 4
+  max_consecutive_losses: 3
+  min_signal_score: 65
+  no_entry_first_minutes: 5
+  last_entry_time: "15:30"
+  zero_dte_last_entry_time: "15:00"
+  flatten_time: "15:50"           # everything is closed before the bell
+
+exits:
+  stop_loss_pct: 0.30
+  target1_pct: 0.40
+  target1_fraction: 0.5
+  target2_pct: 0.90
+  breakeven_after_target1: true
+  trail_activation_pct: 0.25
+  trail_pct: 0.20
+  time_stop_minutes: 60
+  zero_dte_stop_loss_pct: 0.35
+  zero_dte_time_stop_minutes: 30
+
+contracts:
+  max_spread_pct: 0.10
+  min_open_interest: 300
+  min_volume: 50
+  min_premium: 0.20
+  max_premium: 10.00
+  target_delta: 0.45
+  zero_dte_target_delta: 0.35
+  max_dte: 10
+
+scanner:
+  core_watchlist: [SPY, QQQ, IWM, AAPL, NVDA, TSLA, AMD, META, MSFT, AMZN, GOOGL, NFLX, AVGO, PLTR, COIN, MU, SMCI, UBER]
+  zero_dte_symbols: [SPY, QQQ, IWM]
+  use_market_movers: true
+  max_hot_list: 25
+  min_price: 5
+  min_day_volume: 1000000
+
+strategies:
+  momentum: true
+  unusual_options: true
+  zero_dte: true
+  catalyst: true
+  orb_minutes: 15
+  min_relative_volume: 1.5
+  uoa_min_vol_oi_ratio: 3.0
+  uoa_min_premium: 250000
+  catalyst_min_gap_pct: 4.0
+
+ai:
+  enabled: false          # needs ANTHROPIC_API_KEY in .env
+  model: claude-opus-5
+  effort: medium          # low is faster/cheaper; high is more thorough
+  web_search: true
+  required_for_auto: true # in auto mode, only trade when the analyst says "take"
+  min_confidence: 60
+
+notify:
+  on_signal: false
+  on_proposal: true
+  on_fill: true
+  on_exit: true
+  on_risk_block: true

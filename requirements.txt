@@ -1,0 +1,14 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pyyaml>=6.0
+numpy>=1.26
+httpx>=0.27
+# Webull official OpenAPI SDK (US options trading + market data)
+webull-openapi-python-sdk==3.0.2
+# Optional: free fallback data source (delayed) when Webull keys are not configured
+yfinance>=0.2.40
+# Optional: AI trade-review agent
+anthropic>=1.8.0
+# Dev
+pytest>=8.0
